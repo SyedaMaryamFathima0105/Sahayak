@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="game-shell cognitive-game game-orientation">
+  <div class="game-topbar"><a href="{{url_for('patient_dashboard')}}" class="back-btn">← Back</a><h1>{{lang.orientation_game}}</h1><div class="level-badge">Level {{level}}</div></div>
+  <div class="game-intro"><span class="game-domain">🧭 ORIENTATION</span><p id="prompt">Choose the best answer.</p></div><div class="contrast-note"><span class="contrast-dot"></span>Clear colour separation helps distinguish the answer choices.</div>
+  <div id="question" class="quiz-question"></div><div id="options" class="quiz-options"></div>
+  <div id="progress" class="quiz-progress"></div>
+  <div id="result-panel" class="result-panel hidden"><h2 id="result-title"></h2><p id="result-detail"></p><a href="{{url_for('patient_dashboard')}}" class="big-btn primary">Back to Home</a><div id="next-countdown" class="next-countdown"></div></div>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+const LEVEL={{level}}, LANG_CODE='{{patient.language}}', WELL_DONE='{{lang.well_done}}', TRY_AGAIN='{{lang.try_again}}';
+const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']; const today=new Date().getDay();
+const nextDay=dayNames[(today+1)%7];
+const base=[
+ {q:'Which day comes after '+dayNames[today]+'?',a:nextDay,o:[nextDay,dayNames[(today+2)%7],dayNames[(today+6)%7]]},
+ {q:'Which activity is usually done before going to sleep?',a:'Get into bed',o:['Get into bed','Eat breakfast','Go for a morning walk']},
+ {q:'Which one helps you know the time?',a:'Clock',o:['Clock','Plate','Shoe']},
+ {q:'Which part of the day usually comes after afternoon?',a:'Evening',o:['Morning','Evening','Midnight']},
+ {q:'Which place is most associated with seeing a doctor?',a:'Clinic',o:['Clinic','Garden','Kitchen']}
+];
+const count=Math.min(5,2+LEVEL); let qs=base.slice(0,count).sort(()=>Math.random()-.5), i=0, correct=0, times=[], started=Date.now();
+function render(){ if(i>=qs.length)return finish(); let x=qs[i]; document.getElementById('question').innerText=x.q; document.getElementById('progress').innerText=`Question ${i+1} of ${qs.length}`; const box=document.getElementById('options'); box.innerHTML=''; [...x.o].sort(()=>Math.random()-.5).forEach(v=>{let b=document.createElement('button');b.className='quiz-option';b.innerText=v;b.onclick=()=>answer(v);box.appendChild(b)}); started=Date.now();}
+function answer(v){times.push(Date.now()-started); if(v===qs[i].a)correct++; i++; render();}
+async function finish(){let acc=correct/qs.length, avg=Math.round(times.reduce((a,b)=>a+b,0)/times.length);let r=await submitScore({game_type:'orientation',accuracy:acc,avg_time_ms:avg,score:Math.round(acc*100),level:LEVEL});document.getElementById('result-title').innerText=acc>=.6?WELL_DONE:TRY_AGAIN;document.getElementById('result-detail').innerText=`Accuracy: ${Math.round(acc*100)}% · ${r.reason}`;document.getElementById('result-panel').classList.remove('hidden');speak(document.getElementById('result-title').innerText,LANG_CODE);autoNext('/game/orientation',r.new_level||LEVEL)}
+function autoNext(url,n){let cd=document.getElementById('next-countdown'); if(n>LEVEL&&LEVEL<5){let s=3;cd.innerText=`Next level starts in ${s}…`;let t=setInterval(()=>{s--;cd.innerText=s>0?`Next level starts in ${s}…`:'Starting…';if(s<=0){clearInterval(t);location.href=url}},1000)}else cd.innerText='Practice this level again or return home.'}
+render();
+</script>{% endblock %}

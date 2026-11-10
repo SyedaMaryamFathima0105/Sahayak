@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><div><span class="eyebrow">Patient home</span><h1 id="welcome-text">{{ lang.welcome }}, {{ patient.name }}</h1><p class="muted">A little practice each day can go a long way.</p></div><div class="head-actions"><button id="speak-btn" class="icon-btn" title="Read aloud">🔊</button><a href="{{ url_for('logout') }}" class="outline-btn">Exit</a></div></div>
+<section class="patient-hero"><div class="patient-identity"><div class="avatar avatar-xl">{{ patient.avatar }}</div><div><h2>Good to see you, {{ patient.name.split(' ')[0] }}!</h2><p>Choose an activity below. There is no rush.</p><div class="lang-switch">{% for code in all_langs %}<button class="lang-btn {% if patient.language==code %}active{% endif %}" data-lang="{{code}}">{{code.upper()}}</button>{% endfor %}</div></div></div><div class="daily-goal"><div class="goal-ring" style="--progress:{{ [today_count*33,100]|min }}%"><strong>{{ today_count }}/3</strong><span>today</span></div><div><b>Daily practice</b><p>{{ 'Great start!' if today_count == 0 else 'Keep your rhythm going.' }}</p></div></div></section>
+<section class="section-head"><div><span class="eyebrow">Today’s activities</span><h2>Pick something to practice</h2></div><span class="soft-badge">{{ total_games }} sessions completed</span></section>
+<section class="games-grid">
+  {% set games = [
+    ('memory',lang.memory_game,'🃏','Recall and recognition','Memory'),
+    ('attention',lang.attention_game,'🎯','Focus, sequencing and response','Attention'),
+    ('routine',lang.routine_game,'☀️','Planning and everyday sequencing','Executive'),
+    ('orientation',lang.orientation_game,'🧭','Time, days and everyday orientation','Orientation'),
+    ('language',lang.language_game,'💬','Word finding and language flexibility','Language'),
+    ('visual',lang.visual_game,'🔷','Visual matching and spatial processing','Visuospatial'),
+    ('numbers',lang.numbers_game,'🔢','Counting, ordering and mental tracking','Numeracy')
+  ] %}
+  {% for key,title,icon,desc,domain in games %}<a href="{{url_for('game',game_type=key)}}" class="game-card"><div class="game-icon">{{icon}}</div><div class="game-card-body"><span class="card-kicker">{{domain}} · LEVEL {{difficulties.get(key,1)}}</span><h3>{{title}}</h3><p>{{desc}}</p><span class="play-link">Play now <b>→</b></span></div></a>{% endfor %}
+</section>
+<p class="muted games-note">These activities exercise different cognitive skills. They are for engagement and practice, not for diagnosing dementia or measuring disease severity.</p>
+<section class="two-col"><div class="panel mood-check"><div class="panel-title"><div><span class="eyebrow">Daily check-in</span><h2>How are you feeling?</h2></div>💙</div><div class="mood-options"><button class="mood-btn" data-mood="happy">😊<small>Good</small></button><button class="mood-btn" data-mood="neutral">😐<small>Okay</small></button><button class="mood-btn" data-mood="low">😔<small>Low</small></button><button class="mood-btn" data-mood="anxious">😟<small>Worried</small></button></div><p id="mood-thanks" class="success-note hidden">Thanks for sharing. 💙</p></div>
+<div class="panel progress-mini"><div class="panel-title"><div><span class="eyebrow">Your momentum</span><h2>Practice snapshot</h2></div>✨</div><div class="stat-row"><div><strong>{{ (recent_acc*100)|round(0) }}%</strong><span>Recent accuracy</span></div><div><strong>{{ total_games }}</strong><span>Total sessions</span></div></div><div class="encourage">Every completed activity counts. Focus on consistency, not perfection.</div></div></section>
+<section class="reminders-panel"><div class="panel-title"><div><span class="eyebrow">Stay on track</span><h2>{{ lang.reminders }}</h2></div><span class="soft-badge">{{ reminders|length }} active</span></div>{% if reminders %}<ul class="reminder-list">{% for r in reminders %}<li class="reminder-item cat-{{r.category}}" data-id="{{r.id}}"><span class="reminder-icon">{% if r.category=='medicine' %}💊{% elif r.category=='hydration' %}💧{% elif r.category=='appointment' %}🏥{% else %}🚶{% endif %}</span><span class="reminder-time">{{r.time_of_day}}</span><span class="reminder-text"><b>{{r.title}}</b><small>{{r.recurring}}</small></span><button class="done-btn" onclick="completeReminder({{r.id}})">✓ Done</button></li>{% endfor %}</ul>{% else %}<div class="empty-state">No reminders yet. Your caregiver can add them for you.</div>{% endif %}</section>
+{% endblock %}
+{% block scripts %}<script src="{{url_for('static',filename='js/patient_dashboard.js')}}"></script>{% endblock %}

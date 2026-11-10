@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>{% block title %}Sahayak | Cognitive Care{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div id="offline-banner" class="offline-banner hidden">⚠ You're offline. Your activity will be kept on this device and synced when possible.</div>
+<div class="app-shell">
+  <div class="app-brandbar"><div class="brand-mark">🧠</div><div><strong>Sahayak</strong><span>Cognitive Care</span></div><div class="brand-status"><span class="status-dot"></span> Care mode</div></div>
+  {% block content %}{% endblock %}
+</div>
+<script src="{{ url_for('static', filename='js/common.js') }}"></script>{% block scripts %}{% endblock %}
+</body></html>

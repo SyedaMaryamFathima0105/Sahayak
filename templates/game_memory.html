@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="game-shell game-memory">
+    <div class="game-topbar">
+        <a href="{{ url_for('patient_dashboard') }}" class="back-btn">← Back</a>
+        <h1>{{ lang.memory_game }}</h1>
+        <div class="level-badge">Level {{ level }}</div>
+    </div>
+    <p class="instructions">Tap two cards to find matching pairs. Take your time.</p><div class="contrast-note"><span class="contrast-dot"></span>High-contrast cards make the active and matched choices easier to distinguish.</div>
+    <div id="board" class="memory-board"></div>
+    <div id="result-panel" class="result-panel hidden">
+        <h2 id="result-title"></h2>
+        <p id="result-detail"></p>
+        <a href="{{ url_for('patient_dashboard') }}" class="big-btn primary">Back to Home</a>
+        <button class="big-btn secondary" id="next-btn">Next level →</button>
+        <div id="next-countdown" class="next-countdown"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const LEVEL = {{ level }};
+const LANG_CODE = "{{ patient.language }}";
+const WELL_DONE = "{{ lang.well_done }}";
+const TRY_AGAIN = "{{ lang.try_again }}";
+
+// pairs count scales gently with adaptive level
+const PAIRS_BY_LEVEL = {1:2, 2:3, 3:6, 4:8, 5:10};
+const ICON_POOL = ['🍎','🍌','🐘','🐅','🌺','🥭','🛖','🎋','🐄','🪈','🍚','🧺','🐓','🌾','🥥'];
+
+const pairCount = PAIRS_BY_LEVEL[LEVEL] || 2;
+let icons = ICON_POOL.slice(0, pairCount);
+let cards = [...icons, ...icons].sort(() => Math.random() - 0.5);
+
+const board = document.getElementById('board');
+const cols = pairCount <= 3 ? 2 : (pairCount <= 6 ? 3 : 4);
+board.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+let flipped = [];
+let matchedCount = 0;
+let attempts = 0;
+let startTime = Date.now();
+let matchTimes = [];
+let lastFlipTime = Date.now();
+let lock = false;
+
+cards.forEach((icon, idx) => {
+    const card = document.createElement('button');
+    card.className = 'memory-card';
+    card.dataset.icon = icon;
+    card.dataset.idx = idx;
+    card.innerText = '❓';
+    card.addEventListener('click', () => flipCard(card));
+    board.appendChild(card);
+});
+
+function flipCard(card) {
+    if (lock || card.classList.contains('matched') || flipped.includes(card)) return;
+    card.innerText = card.dataset.icon;
+    card.classList.add('flipped');
+    flipped.push(card);
+
+    if (flipped.length === 2) {
+        attempts++;
+        lock = true;
+        const [a, b] = flipped;
+        if (a.dataset.icon === b.dataset.icon) {
+            matchTimes.push(Date.now() - lastFlipTime);
+            a.classList.add('matched');
+            b.classList.add('matched');
+            matchedCount++;
+            flipped = [];
+            lock = false;
+            lastFlipTime = Date.now();
+            if (matchedCount === pairCount) finishGame();
+        } else {
+            setTimeout(() => {
+                a.innerText = '❓'; b.innerText = '❓';
+                a.classList.remove('flipped'); b.classList.remove('flipped');
+                flipped = [];
+                lock = false;
+            }, 900);
+        }
+    }
+}
+
+async function finishGame() {
+    const accuracy = Math.min(1, pairCount / attempts);
+    const avgTime = matchTimes.length ? Math.round(matchTimes.reduce((a,b)=>a+b,0)/matchTimes.length) : 4000;
+
+    const result = await submitScore({
+        game_type: 'memory', accuracy, avg_time_ms: avgTime,
+        score: Math.round(accuracy * 100), level: LEVEL
+    });
+
+    const title = accuracy >= 0.6 ? WELL_DONE : TRY_AGAIN;
+    document.getElementById('result-title').innerText = title;
+    document.getElementById('result-detail').innerText =
+        `Accuracy: ${Math.round(accuracy*100)}% • Next level: ${result.new_level} (${result.reason})`;
+    document.getElementById('result-panel').classList.remove('hidden');
+    speak(title, LANG_CODE);
+    const nextBtn = document.getElementById('next-btn');
+    const nextLevel = result.new_level || LEVEL;
+    nextBtn.addEventListener('click', () => { window.location.href = '/game/memory'; });
+    if (nextLevel > LEVEL) {
+        let seconds = 3;
+        const cd = document.getElementById('next-countdown');
+        cd.innerText = `Next level starts in ${seconds}…`;
+        const timer = setInterval(() => { seconds--; cd.innerText = seconds > 0 ? `Next level starts in ${seconds}…` : 'Starting…'; if (seconds <= 0) { clearInterval(timer); window.location.href = '/game/memory'; } }, 1000);
+    } else {
+        document.getElementById('next-countdown').innerText = 'You can replay this level or return home.';
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="game-shell game-attention">
+    <div class="game-topbar">
+        <a href="{{ url_for('patient_dashboard') }}" class="back-btn">← Back</a>
+        <h1>{{ lang.attention_game }}</h1>
+        <div class="level-badge">Level {{ level }}</div>
+    </div>
+    <p class="instructions" id="instructions">Watch the tiles light up, then tap them back in the same order.</p>
+    <div id="board" class="attention-board">
+        <button class="attn-tile" data-idx="0" style="--c:#ff6b6b"></button>
+        <button class="attn-tile" data-idx="1" style="--c:#4ecdc4"></button>
+        <button class="attn-tile" data-idx="2" style="--c:#ffd93d"></button>
+        <button class="attn-tile" data-idx="3" style="--c:#6c5ce7"></button>
+    </div>
+    <button id="start-btn" class="big-btn primary">Start</button>
+    <div id="result-panel" class="result-panel hidden">
+        <h2 id="result-title"></h2>
+        <p id="result-detail"></p>
+        <a href="{{ url_for('patient_dashboard') }}" class="big-btn primary">Back to Home</a>
+        <button class="big-btn secondary" id="next-btn">Next level →</button>
+        <div id="next-countdown" class="next-countdown"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const LEVEL = {{ level }};
+const LANG_CODE = "{{ patient.language }}";
+const WELL_DONE = "{{ lang.well_done }}";
+const TRY_AGAIN = "{{ lang.try_again }}";
+
+const SEQ_LEN_BY_LEVEL = {1:3, 2:4, 3:5, 4:6, 5:7};
+const seqLen = SEQ_LEN_BY_LEVEL[LEVEL] || 3;
+
+const tiles = [...document.querySelectorAll('.attn-tile')];
+let sequence = [];
+let userInput = [];
+let accepting = false;
+let sequenceEndTime = 0;
+let responseTimes = [];
+
+document.getElementById('start-btn').addEventListener('click', startRound);
+
+function startRound() {
+    document.getElementById('start-btn').classList.add('hidden');
+    sequence = Array.from({length: seqLen}, () => Math.floor(Math.random() * 4));
+    userInput = [];
+    accepting = false;
+    playSequence();
+}
+
+async function playSequence() {
+    document.getElementById('instructions').innerText = 'Watch closely...';
+    for (const idx of sequence) {
+        await lightUp(tiles[idx]);
+        await sleep(250);
+    }
+    document.getElementById('instructions').innerText = 'Your turn — tap in the same order';
+    sequenceEndTime = Date.now();
+    accepting = true;
+}
+
+function lightUp(tile) {
+    return new Promise(resolve => {
+        tile.classList.add('lit');
+        setTimeout(() => { tile.classList.remove('lit'); resolve(); }, 550);
+    });
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+tiles.forEach(tile => {
+    tile.addEventListener('click', () => {
+        if (!accepting) return;
+        const idx = parseInt(tile.dataset.idx);
+        userInput.push(idx);
+        tile.classList.add('lit');
+        setTimeout(() => tile.classList.remove('lit'), 200);
+
+        if (userInput.length === sequence.length) {
+            accepting = false;
+            responseTimes.push(Date.now() - sequenceEndTime);
+            finishGame();
+        }
+    });
+});
+
+async function finishGame() {
+    let correct = 0;
+    for (let i = 0; i < sequence.length; i++) if (userInput[i] === sequence[i]) correct++;
+    const accuracy = correct / sequence.length;
+    const avgTime = responseTimes.length ? Math.round(responseTimes.reduce((a,b)=>a+b,0)/responseTimes.length) : 4000;
+
+    const result = await submitScore({
+        game_type: 'attention', accuracy, avg_time_ms: avgTime,
+        score: Math.round(accuracy * 100), level: LEVEL
+    });
+
+    const title = accuracy >= 0.6 ? WELL_DONE : TRY_AGAIN;
+    document.getElementById('result-title').innerText = title;
+    document.getElementById('result-detail').innerText =
+        `Accuracy: ${Math.round(accuracy*100)}% • Next level: ${result.new_level} (${result.reason})`;
+    document.getElementById('result-panel').classList.remove('hidden');
+    speak(title, LANG_CODE);
+    const nextBtn = document.getElementById('next-btn');
+    const nextLevel = result.new_level || LEVEL;
+    nextBtn.addEventListener('click', () => { window.location.href = '/game/attention'; });
+    if (nextLevel > LEVEL) {
+        let seconds = 3;
+        const cd = document.getElementById('next-countdown');
+        cd.innerText = `Next level starts in ${seconds}…`;
+        const timer = setInterval(() => { seconds--; cd.innerText = seconds > 0 ? `Next level starts in ${seconds}…` : 'Starting…'; if (seconds <= 0) { clearInterval(timer); window.location.href = '/game/attention'; } }, 1000);
+    } else {
+        document.getElementById('next-countdown').innerText = 'You can replay this level or return home.';
+    }
+}
+</script>
+{% endblock %}

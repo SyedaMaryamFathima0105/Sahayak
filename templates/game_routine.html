@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="game-shell game-routine">
+    <div class="game-topbar">
+        <a href="{{ url_for('patient_dashboard') }}" class="back-btn">← Back</a>
+        <h1>{{ lang.routine_game }}</h1>
+        <div class="level-badge">Level {{ level }}</div>
+    </div>
+    <p class="instructions">Tap the activities in the order you usually do them during the day.</p><div class="contrast-note"><span class="contrast-dot"></span>Strong colour edges help separate each activity card without adding visual clutter.</div>
+    <div id="board" class="routine-board"></div>
+    <div id="chosen-order" class="chosen-order"></div>
+    <div id="result-panel" class="result-panel hidden">
+        <h2 id="result-title"></h2>
+        <p id="result-detail"></p>
+        <a href="{{ url_for('patient_dashboard') }}" class="big-btn primary">Back to Home</a>
+        <button class="big-btn secondary" id="next-btn">Next level →</button>
+        <div id="next-countdown" class="next-countdown"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const LEVEL = {{ level }};
+const LANG_CODE = "{{ patient.language }}";
+const WELL_DONE = "{{ lang.well_done }}";
+const TRY_AGAIN = "{{ lang.try_again }}";
+
+const ITEMS_BY_LEVEL = {1:4, 2:5, 3:6, 4:7, 5:8};
+const itemCount = ITEMS_BY_LEVEL[LEVEL] || 4;
+
+// full chronological daily routine (culturally common activities in NER households)
+const FULL_ROUTINE = [
+    {icon:'🌅', label:'Wake up'},
+    {icon:'🪥', label:'Brush teeth'},
+    {icon:'🧼', label:'Bathe'},
+    {icon:'🍵', label:'Morning tea'},
+    {icon:'💊', label:'Take medicine'},
+    {icon:'🍚', label:'Breakfast'},
+    {icon:'🚶', label:'Morning walk'},
+    {icon:'🍛', label:'Lunch'},
+    {icon:'😴', label:'Afternoon rest'},
+    {icon:'🌇', label:'Evening tea'},
+    {icon:'🍽️', label:'Dinner'},
+    {icon:'🛏️', label:'Sleep'},
+];
+
+const correctOrder = FULL_ROUTINE.slice(0, itemCount);
+const shuffled = [...correctOrder].sort(() => Math.random() - 0.5);
+
+const board = document.getElementById('board');
+const chosenBox = document.getElementById('chosen-order');
+let userOrder = [];
+let startTime = Date.now();
+let stepTimes = [];
+let lastTime = startTime;
+
+shuffled.forEach(item => {
+    const btn = document.createElement('button');
+    btn.className = 'routine-tile';
+    btn.innerHTML = `<span class="routine-icon">${item.icon}</span><span>${item.label}</span>`;
+    btn.addEventListener('click', () => pick(item, btn));
+    board.appendChild(btn);
+});
+
+function pick(item, btn) {
+    if (btn.classList.contains('chosen')) return;
+    btn.classList.add('chosen');
+    userOrder.push(item.label);
+    stepTimes.push(Date.now() - lastTime);
+    lastTime = Date.now();
+
+    const chip = document.createElement('span');
+    chip.className = 'order-chip';
+    chip.innerText = `${userOrder.length}. ${item.icon} ${item.label}`;
+    chosenBox.appendChild(chip);
+
+    if (userOrder.length === correctOrder.length) finishGame();
+}
+
+async function finishGame() {
+    let correct = 0;
+    correctOrder.forEach((item, i) => { if (userOrder[i] === item.label) correct++; });
+    const accuracy = correct / correctOrder.length;
+    const avgTime = Math.round(stepTimes.reduce((a,b)=>a+b,0) / stepTimes.length);
+
+    const result = await submitScore({
+        game_type: 'routine', accuracy, avg_time_ms: avgTime,
+        score: Math.round(accuracy * 100), level: LEVEL
+    });
+
+    const title = accuracy >= 0.6 ? WELL_DONE : TRY_AGAIN;
+    document.getElementById('result-title').innerText = title;
+    document.getElementById('result-detail').innerText =
+        `Accuracy: ${Math.round(accuracy*100)}% • Next level: ${result.new_level} (${result.reason})`;
+    document.getElementById('result-panel').classList.remove('hidden');
+    speak(title, LANG_CODE);
+    const nextBtn = document.getElementById('next-btn');
+    const nextLevel = result.new_level || LEVEL;
+    nextBtn.addEventListener('click', () => { window.location.href = '/game/routine'; });
+    if (nextLevel > LEVEL) {
+        let seconds = 3;
+        const cd = document.getElementById('next-countdown');
+        cd.innerText = `Next level starts in ${seconds}…`;
+        const timer = setInterval(() => { seconds--; cd.innerText = seconds > 0 ? `Next level starts in ${seconds}…` : 'Starting…'; if (seconds <= 0) { clearInterval(timer); window.location.href = '/game/routine'; } }, 1000);
+    } else {
+        document.getElementById('next-countdown').innerText = 'You can replay this level or return home.';
+    }
+}
+</script>
+{% endblock %}

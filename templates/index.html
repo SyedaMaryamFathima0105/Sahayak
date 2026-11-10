@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="landing">
+  <section class="hero">
+    <div class="hero-copy"><span class="eyebrow">A simple companion for everyday cognitive wellbeing</span><h1>Care that feels <span>human.</span></h1><p>Simple games, gentle reminders and meaningful progress tracking, designed for patients, families and care workers.</p><div class="hero-pills"><span>✓ Multilingual</span><span>✓ Easy to use</span><span>✓ Low-connectivity friendly</span></div></div>
+    <div class="hero-illustration"><div class="orbit-card one">🧩<small>Memory</small></div><div class="brain-orb">🧠</div><div class="orbit-card two">❤️<small>Wellbeing</small></div><div class="orbit-card three">⏰<small>Routine</small></div></div>
+  </section>
+  {% if error %}<div class="error-box">{{ error }}</div>{% endif %}
+  <section class="role-grid">
+    <a class="role-card patient-role" href="{{ url_for('patient_entry') }}"><div class="role-icon">👴👵</div><div><span class="role-label">PATIENT</span><h2>I’m a Patient</h2><p>Continue your care journey or create your profile.</p></div><span class="arrow">→</span></a>
+    <div class="role-card caregiver-role"><div class="role-icon">🩺</div><div><span class="role-label">CAREGIVER</span><h2>Caregiver / Health Worker</h2><p>Manage patients, reminders and progress.</p><form method="POST" action="{{ url_for('caregiver_login') }}" class="pin-form"><input type="password" inputmode="numeric" maxlength="4" name="pin" placeholder="4-digit PIN" required><button class="big-btn secondary" type="submit">Sign in</button></form><small>Demo: 9999 or 5555</small></div></div>
+  </section>
+  <section class="trust-strip"><div><b>Built for real routines</b><span>Large touch targets and calm visual cues.</span></div><div><b>Progress, not pressure</b><span>Adaptive levels respond to performance.</span></div><div><b>Made for families</b><span>Caregivers can see the bigger picture.</span></div></section>
+</div>
+{% endblock %}
